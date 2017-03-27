@@ -108,210 +108,210 @@ struct StorageTestFixture {
   }
 };
 
-KJ_TEST("basic assignables") {
-  StorageTestFixture env;
+// KJ_TEST("basic assignables") {
+//   StorageTestFixture env;
 
-  env.setRoot("root", env.newTextObject("foo"));
+//   env.setRoot("root", env.newTextObject("foo"));
 
-  {
-    auto root = env.getRoot("root");
-    auto response = root.getRequest().send().wait(env.io.waitScope);
-    KJ_EXPECT(response.getValue().getText() == "foo");
+//   {
+//     auto root = env.getRoot("root");
+//     auto response = root.getRequest().send().wait(env.io.waitScope);
+//     KJ_EXPECT(response.getValue().getText() == "foo");
 
-    KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes() == 4096);
+//     KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes() == 4096);
 
-    // Modify the value.
-    auto req = response.getSetter().setRequest();
-    auto newVal = req.initValue();
-    newVal.setText("bar");
-    newVal.setSub1(env.newTextObject("baz"));
-    newVal.setSub2(env.newObject([&](auto value) {
-      value.setText("qux");
-      value.setSub1(env.newTextObject("corge"));
-    }));
-    auto promise = req.send();
+//     // Modify the value.
+//     auto req = response.getSetter().setRequest();
+//     auto newVal = req.initValue();
+//     newVal.setText("bar");
+//     newVal.setSub1(env.newTextObject("baz"));
+//     newVal.setSub2(env.newObject([&](auto value) {
+//       value.setText("qux");
+//       value.setSub1(env.newTextObject("corge"));
+//     }));
+//     auto promise = req.send();
 
-    auto response2 = root.getRequest().send().wait(env.io.waitScope);
-    auto readback = response2.getValue();
-    KJ_EXPECT(readback.getText() == "bar");
+//     auto response2 = root.getRequest().send().wait(env.io.waitScope);
+//     auto readback = response2.getValue();
+//     KJ_EXPECT(readback.getText() == "bar");
 
-    auto subResponse1 = readback.getSub1().getRequest().send().wait(env.io.waitScope);
-    KJ_EXPECT(subResponse1.getValue().getText() == "baz");
-    auto subResponse2 = readback.getSub2().getRequest().send().wait(env.io.waitScope);
-    KJ_EXPECT(subResponse2.getValue().getText() == "qux");
+//     auto subResponse1 = readback.getSub1().getRequest().send().wait(env.io.waitScope);
+//     KJ_EXPECT(subResponse1.getValue().getText() == "baz");
+//     auto subResponse2 = readback.getSub2().getRequest().send().wait(env.io.waitScope);
+//     KJ_EXPECT(subResponse2.getValue().getText() == "qux");
 
-    KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes()==4096*4);
+//     KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes()==4096*4);
 
-    promise.wait(env.io.waitScope);
-  }
+//     promise.wait(env.io.waitScope);
+//   }
 
-  env.io.provider->getTimer().afterDelay(10 * kj::MILLISECONDS).wait(env.io.waitScope);
+//   env.io.provider->getTimer().afterDelay(10 * kj::MILLISECONDS).wait(env.io.waitScope);
 
-  {
-    auto root = env.getRoot("root");
-    auto response = root.getRequest().send().wait(env.io.waitScope);
-    auto value = response.getValue();
-    KJ_EXPECT(value.getText() == "bar");
+//   {
+//     auto root = env.getRoot("root");
+//     auto response = root.getRequest().send().wait(env.io.waitScope);
+//     auto value = response.getValue();
+//     KJ_EXPECT(value.getText() == "bar");
 
-    auto subResponse1 = value.getSub1().getRequest().send().wait(env.io.waitScope);
-    KJ_EXPECT(subResponse1.getValue().getText() == "baz");
-    auto subResponse2 = value.getSub2().getRequest().send().wait(env.io.waitScope);
-    KJ_EXPECT(subResponse2.getValue().getText() == "qux");
-  }
-}
+//     auto subResponse1 = value.getSub1().getRequest().send().wait(env.io.waitScope);
+//     KJ_EXPECT(subResponse1.getValue().getText() == "baz");
+//     auto subResponse2 = value.getSub2().getRequest().send().wait(env.io.waitScope);
+//     KJ_EXPECT(subResponse2.getValue().getText() == "qux");
+//   }
+// }
 
-// Current state of storage:
-//
-// root = (text = "bar", sub1 = x, sub2 = y)
-// x = (text = "baz", sub1 = z)
-// y = (text = "qux")
-// z = (text = "corge")
+// // Current state of storage:
+// //
+// // root = (text = "bar", sub1 = x, sub2 = y)
+// // x = (text = "baz", sub1 = z)
+// // y = (text = "qux")
+// // z = (text = "corge")
 
-KJ_TEST("use after reload") {
-  StorageTestFixture env;
+// KJ_TEST("use after reload") {
+//   StorageTestFixture env;
 
-  auto root = env.getRoot("root");
-  auto response = root.getRequest().send().wait(env.io.waitScope);
-  auto value = response.getValue();
-  KJ_EXPECT(value.getText() == "bar");
+//   auto root = env.getRoot("root");
+//   auto response = root.getRequest().send().wait(env.io.waitScope);
+//   auto value = response.getValue();
+//   KJ_EXPECT(value.getText() == "bar");
 
-  auto subResponse1 = value.getSub1().getRequest().send().wait(env.io.waitScope);
-  KJ_EXPECT(subResponse1.getValue().getText() == "baz");
-  auto subResponse2 = value.getSub2().getRequest().send().wait(env.io.waitScope);
-  KJ_EXPECT(subResponse2.getValue().getText() == "qux");
+//   auto subResponse1 = value.getSub1().getRequest().send().wait(env.io.waitScope);
+//   KJ_EXPECT(subResponse1.getValue().getText() == "baz");
+//   auto subResponse2 = value.getSub2().getRequest().send().wait(env.io.waitScope);
+//   KJ_EXPECT(subResponse2.getValue().getText() == "qux");
 
-  auto subSubResponse = subResponse2.getValue().getSub1()
-      .getRequest().send().wait(env.io.waitScope);
-  KJ_EXPECT(subSubResponse.getValue().getText() == "corge");
+//   auto subSubResponse = subResponse2.getValue().getSub1()
+//       .getRequest().send().wait(env.io.waitScope);
+//   KJ_EXPECT(subSubResponse.getValue().getText() == "corge");
 
-  KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes() == 4096*4);
-}
+//   KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes() == 4096*4);
+// }
 
-// Current state of storage:
-//
-// root = (text = "bar", sub1 = x, sub2 = y)
-// x = (text = "baz")
-// y = (text = "qux", sub1 = z)
-// z = (text = "corge")
+// // Current state of storage:
+// //
+// // root = (text = "bar", sub1 = x, sub2 = y)
+// // x = (text = "baz")
+// // y = (text = "qux", sub1 = z)
+// // z = (text = "corge")
 
-KJ_TEST("delete some children") {
-  StorageTestFixture env;
+// KJ_TEST("delete some children") {
+//   StorageTestFixture env;
 
-  auto root = env.getRoot("root");
+//   auto root = env.getRoot("root");
 
-  auto main = sandstorm::raiiOpenAt(testTempdir.fd, "main", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-  auto deathRow = sandstorm::raiiOpenAt(testTempdir.fd, "death-row",
-      O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+//   auto main = sandstorm::raiiOpenAt(testTempdir.fd, "main", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+//   auto deathRow = sandstorm::raiiOpenAt(testTempdir.fd, "death-row",
+//       O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 
-  KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 4);
-  KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
+//   KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 4);
+//   KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
 
-  OwnedAssignable<TestStoredObject>::Client zombie = ({
-    auto response = root.getRequest().send().wait(env.io.waitScope);
-    auto req = response.getSetter().setRequest();
-    auto value = req.initValue();
-    value.setText("quux");
-    value.setSub1(response.getValue().getSub1());
-    // don't set sub2
-    req.send().wait(env.io.waitScope);
+//   OwnedAssignable<TestStoredObject>::Client zombie = ({
+//     auto response = root.getRequest().send().wait(env.io.waitScope);
+//     auto req = response.getSetter().setRequest();
+//     auto value = req.initValue();
+//     value.setText("quux");
+//     value.setSub1(response.getValue().getSub1());
+//     // don't set sub2
+//     req.send().wait(env.io.waitScope);
 
-    uint64_t size = root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes();
-    KJ_EXPECT(size == 4096 * 2, size);
+//     uint64_t size = root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes();
+//     KJ_EXPECT(size == 4096 * 2, size);
 
-    response.getValue().getSub2();
-  });
+//     response.getValue().getSub2();
+//   });
 
-  // Death row is cleaned up asynchronously, so wait a bit before checking.
-  env.io.provider->getTimer().afterDelay(10 * kj::MILLISECONDS).wait(env.io.waitScope);
+//   // Death row is cleaned up asynchronously, so wait a bit before checking.
+//   env.io.provider->getTimer().afterDelay(10 * kj::MILLISECONDS).wait(env.io.waitScope);
 
-  // Verify that tree was deleted. We'll need to give the death-row deleter thread some time, too.
-  KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 2);
-  KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
+//   // Verify that tree was deleted. We'll need to give the death-row deleter thread some time, too.
+//   KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 2);
+//   KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
 
-  // Try overwriting our zombie reference.
-  {
-    auto req = zombie.asSetterRequest().send().getSetter().setRequest();
-    req.initValue().setText("doesnt matter already deleted");
-    req.send().wait(env.io.waitScope);
-  }
+//   // Try overwriting our zombie reference.
+//   {
+//     auto req = zombie.asSetterRequest().send().getSetter().setRequest();
+//     req.initValue().setText("doesnt matter already deleted");
+//     req.send().wait(env.io.waitScope);
+//   }
 
-  // That shouldn't have added a file to main.
-  KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 2);
+//   // That shouldn't have added a file to main.
+//   KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 2);
 
-  // It adds a file directly to death row, which should get cleaned up.
-  env.io.provider->getTimer().afterDelay(10 * kj::MILLISECONDS).wait(env.io.waitScope);
-  KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
+//   // It adds a file directly to death row, which should get cleaned up.
+//   env.io.provider->getTimer().afterDelay(10 * kj::MILLISECONDS).wait(env.io.waitScope);
+//   KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
 
-  // Expect parent's size wasn't unexpectedly modified.
-  KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes() == 4096*2);
-}
+//   // Expect parent's size wasn't unexpectedly modified.
+//   KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes() == 4096*2);
+// }
 
-// Current state of storage:
-//
-// root = (text = "quux", sub1 = x)
-// x = (text = "baz")
+// // Current state of storage:
+// //
+// // root = (text = "quux", sub1 = x)
+// // x = (text = "baz")
 
-KJ_TEST("delete volume child while still writing") {
-   StorageTestFixture env;
+// KJ_TEST("delete volume child while still writing") {
+//    StorageTestFixture env;
 
-  auto root = env.getRoot("root");
+//   auto root = env.getRoot("root");
 
-  auto main = sandstorm::raiiOpenAt(testTempdir.fd, "main", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-  auto deathRow = sandstorm::raiiOpenAt(testTempdir.fd, "death-row",
-      O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+//   auto main = sandstorm::raiiOpenAt(testTempdir.fd, "main", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+//   auto deathRow = sandstorm::raiiOpenAt(testTempdir.fd, "death-row",
+//       O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 
-  KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 2);
-  KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
+//   KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 2);
+//   KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
 
-  // Set root.sub2 to (volume = (some new volume)).
-  OwnedVolume::Client volume = ({
-    auto volume = env.factory.newVolumeRequest().send().wait(env.io.waitScope).getVolume();
+//   // Set root.sub2 to (volume = (some new volume)).
+//   OwnedVolume::Client volume = ({
+//     auto volume = env.factory.newVolumeRequest().send().wait(env.io.waitScope).getVolume();
 
-    auto response = root.getRequest().send().wait(env.io.waitScope);
-    auto req = response.getSetter().setRequest();
-    req.setValue(response.getValue());
-    req.getValue().setSub2(env.newObject([&](auto value) {
-      value.setText("deleteme");
-      value.setVolume(volume);
-    }));
+//     auto response = root.getRequest().send().wait(env.io.waitScope);
+//     auto req = response.getSetter().setRequest();
+//     req.setValue(response.getValue());
+//     req.getValue().setSub2(env.newObject([&](auto value) {
+//       value.setText("deleteme");
+//       value.setVolume(volume);
+//     }));
 
-    req.send().wait(env.io.waitScope);
-    volume;
-  });
+//     req.send().wait(env.io.waitScope);
+//     volume;
+//   });
 
-  {
-    auto response = root.getRequest().send().wait(env.io.waitScope);
-    auto req = response.getSetter().setRequest();
-    auto value = req.initValue();
-    value.setText("grault");
-    value.setSub1(response.getValue().getSub1());
-    // don't set sub2
-    req.send().wait(env.io.waitScope);
+//   {
+//     auto response = root.getRequest().send().wait(env.io.waitScope);
+//     auto req = response.getSetter().setRequest();
+//     auto value = req.initValue();
+//     value.setText("grault");
+//     value.setSub1(response.getValue().getSub1());
+//     // don't set sub2
+//     req.send().wait(env.io.waitScope);
 
-    uint64_t size = root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes();
-    KJ_EXPECT(size == 4096 * 2, size);
-  };
+//     uint64_t size = root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes();
+//     KJ_EXPECT(size == 4096 * 2, size);
+//   };
 
-  // Death row is cleaned up asynchronously, so wait a bit before checking.
-  env.io.provider->getTimer().afterDelay(10 * kj::MILLISECONDS).wait(env.io.waitScope);
+//   // Death row is cleaned up asynchronously, so wait a bit before checking.
+//   env.io.provider->getTimer().afterDelay(10 * kj::MILLISECONDS).wait(env.io.waitScope);
 
-  // Verify that tree was deleted. We'll need to give the death-row deleter thread some time, too.
-  KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 2);
-  KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
+//   // Verify that tree was deleted. We'll need to give the death-row deleter thread some time, too.
+//   KJ_EXPECT(sandstorm::listDirectoryFd(main).size() == 2);
+//   KJ_EXPECT(sandstorm::listDirectoryFd(deathRow).size() == 0);
 
-  // Try writing to our volume. It takes several writes before a size update is triggered, which
-  // used to crash.
-  for (auto i: kj::range(0, 1024)) {
-    auto req = volume.writeRequest();
-    req.setBlockNum(i * 8);
-    auto data = req.initData(Volume::BLOCK_SIZE * 8);
-    memset(data.begin(), 12, data.size());
-    req.send().wait(env.io.waitScope);
-  }
+//   // Try writing to our volume. It takes several writes before a size update is triggered, which
+//   // used to crash.
+//   for (auto i: kj::range(0, 1024)) {
+//     auto req = volume.writeRequest();
+//     req.setBlockNum(i * 8);
+//     auto data = req.initData(Volume::BLOCK_SIZE * 8);
+//     memset(data.begin(), 12, data.size());
+//     req.send().wait(env.io.waitScope);
+//   }
 
-  // Expect parent's size wasn't unexpectedly modified.
-  KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes() == 4096*2);
-}
+//   // Expect parent's size wasn't unexpectedly modified.
+//   KJ_EXPECT(root.getStorageUsageRequest().send().wait(env.io.waitScope).getTotalBytes() == 4096*2);
+// }
 
 // =======================================================================================
 
