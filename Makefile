@@ -56,7 +56,7 @@ shell/.meteor/%: deps/sandstorm/shell/.meteor/% tmp/.deps shell/.meteor
 shell/.meteor/packages: deps/sandstorm/shell/.meteor/packages tmp/.deps shell/.meteor shell/packages/blackrock-*
 	@$(call color,generating meteor package list)
 	@cp $< $@
-	@(echo && cd shell/packages && ls -d blackrock-*) >> $@
+	# @(echo && cd shell/packages && ls -d blackrock-*) >> $@
 	@find shell/packages -type l | xargs -r rm
 	@(cd shell/packages && ln -s ../../deps/sandstorm/shell/packages/* .)
 meteor-env: shell/.meteor/cordova-plugins shell/.meteor/platforms shell/.meteor/release shell/.meteor/versions shell/.meteor/packages
