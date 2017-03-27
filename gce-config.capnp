@@ -7,7 +7,6 @@ const gce :MasterConfig = (
     baseUrl = "http://pdis.rocks",
     wildcardHost = "*.pdis.rocks",
     allowDemoAccounts = true,
-    quotaEnabled = false,
     isTesting = true,
     outOfBeta = true,
     allowUninvited = true,
