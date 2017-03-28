@@ -130,4 +130,4 @@ doit gce images create blackrock-$BUILDSTAMP --source-disk build
 doit gce disks delete -q build
 
 # Also upload to master.
-doit gce copy-files bin/blackrock root@master:/blackrock/bin/blackrock-$BUILDSTAMP
+# doit gce copy-files bin/blackrock root@master:/blackrock/bin/blackrock-$BUILDSTAMP
