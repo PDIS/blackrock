@@ -9,14 +9,14 @@ fi
 
 case $1 in
   test )
-    GCE_PROJECT=sandstorm-blackrock-testing
-    export CLOUDSDK_COMPUTE_ZONE=us-central1-f
+    GCE_PROJECT=blackrock-mark
+    export CLOUDSDK_COMPUTE_ZONE=asia-east1-a
     BUILD=0
     BUILDSTAMP=$(date -u +%Y%m%d-%H%M%S)
     ;;
   prod )
-    GCE_PROJECT=sandstorm-oasis
-    export CLOUDSDK_COMPUTE_ZONE=us-central1-f
+    GCE_PROJECT=blackrock-mark
+    export CLOUDSDK_COMPUTE_ZONE=asia-east1-a
 
     # We always do a Blackrock prod release shortly after a Sandstorm release.
     BUILD=$(curl -s https://install.sandstorm.io/dev)
@@ -92,7 +92,8 @@ doit() {
   fi
 }
 
-doit make clean BUILD=$BUILD
+doit make deps
+# doit make clean BUILD=$BUILD
 doit make BUILD=$BUILD
 
 if [ "$HOTFIX" = "yes" ]; then
