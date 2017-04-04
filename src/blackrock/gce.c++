@@ -21,6 +21,9 @@
 #include <sandstorm/util.h>
 #include <capnp/serialize-async.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+
 namespace blackrock {
 
 namespace {
@@ -98,9 +101,7 @@ auto GceDriver::listMachines() -> kj::Promise<kj::Array<MachineId>> {
       kj::LowLevelAsyncIoProvider::Flags::TAKE_OWNERSHIP |
       kj::LowLevelAsyncIoProvider::Flags::ALREADY_CLOEXEC);
 
-  // TODO(cleanup): Use `--format json` here (but then we need a json parser).
-  auto exitPromise = gceCommand({"instances", "list", "--format", "text", "-q"},
-                                STDIN_FILENO, writeEnd);
+  auto exitPromise = gceCommand({"echo","list-all-machine"}, STDIN_FILENO, writeEnd);
 
   auto outputPromise = readAllAsync(*input);
   return outputPromise.attach(kj::mv(input))
@@ -112,42 +113,20 @@ auto GceDriver::listMachines() -> kj::Promise<kj::Array<MachineId>> {
     kj::Vector<kj::Promise<void>> promises;
 
     promises.add(kj::mv(exitPromise));
+	
+    lastSeenMachine = MachineId("frontend0");
+    result.add(KJ_ASSERT_NONNULL(lastSeenMachine));
 
-    // Parse lines until there are no more.
-    while (text.size() > 0) {
-      uint eol = KJ_ASSERT_NONNULL(text.findFirst('\n'));
+    lastSeenMachine = MachineId("mongo0");
+    result.add(KJ_ASSERT_NONNULL(lastSeenMachine));
 
-      // Look for "name:" lines, which are instance names. Ignore everything else.
-      if (text.startsWith("name:")) {
-        auto name = sandstorm::trim(text.slice(strlen("name:"), eol));
-        if (!name.startsWith("master") &&
-            !name.startsWith("build") &&
-            !name.startsWith("nginx")) {
-          lastSeenMachine = MachineId(name);
-        }
-      } else if (text.startsWith("tags.items[")) {
-        auto name = sandstorm::trim(text.slice(KJ_ASSERT_NONNULL(text.findFirst(':')) + 1, eol));
-        if (name == image) {
-          // Cool, this machine has the right tag, so it checks out.
-          result.add(KJ_ASSERT_NONNULL(lastSeenMachine));
-          lastSeenMachine = nullptr;
-        }
-      } else if (text.startsWith("---")) {
-        KJ_IF_MAYBE(machine, lastSeenMachine) {
-          KJ_LOG(INFO, "shutting down machine running old image", *machine);
-          promises.add(stop(*machine));
-          lastSeenMachine = nullptr;
-        }
-      }
+    lastSeenMachine = MachineId("storage0");
+    result.add(KJ_ASSERT_NONNULL(lastSeenMachine));
 
-      text = text.slice(eol + 1);
-    }
+    lastSeenMachine = MachineId("worker0");
+    result.add(KJ_ASSERT_NONNULL(lastSeenMachine));
 
-    KJ_IF_MAYBE(machine, lastSeenMachine) {
-      KJ_LOG(INFO, "shutting down machine running old image", *machine);
-      promises.add(stop(*machine));
-      lastSeenMachine = nullptr;
-    }
+    KJ_LOG(INFO, "add all machines");
 
     return kj::joinPromises(promises.releaseAsArray())
         .then([KJ_MVCAP(result)]() mutable { return result.releaseAsArray(); });
@@ -155,73 +134,9 @@ auto GceDriver::listMachines() -> kj::Promise<kj::Array<MachineId>> {
 }
 
 kj::Promise<void> GceDriver::boot(MachineId id) {
-  kj::Vector<kj::StringPtr> args;
-  kj::Vector<kj::String> scratch;
-  auto idStr = kj::str(id);
-  auto tagStr = kj::str("--tags=", image);
-  args.addAll(std::initializer_list<const kj::StringPtr>
-      { "instances", "create", idStr, "--image", image, tagStr, "--no-scopes", "-q" });
-  kj::StringPtr startupScript;
-  kj::StringPtr instanceType;
-  switch (id.type) {
-    case ComputeDriver::MachineType::STORAGE: {
-      instanceType = config.getInstanceTypes().getStorage();
-
-      // Attach necessary disk.
-      auto param = kj::str("--disk=name=", id, "-data,mode=rw,device-name=blackrock");
-      args.add(param);
-      scratch.add(kj::mv(param));
-      startupScript =
-          "#! /bin/sh\n"
-          "mkdir -p /var/blackrock/storage\n"
-          "mount /dev/disk/by-id/google-blackrock /var/blackrock/storage\n";
-      break;
-    }
-
-    case ComputeDriver::MachineType::WORKER:
-      instanceType = config.getInstanceTypes().getWorker();
-      break;
-
-    case ComputeDriver::MachineType::COORDINATOR:
-      instanceType = config.getInstanceTypes().getCoordinator();
-      break;
-
-    case ComputeDriver::MachineType::FRONTEND:
-      instanceType = config.getInstanceTypes().getFrontend();
-      break;
-
-    case ComputeDriver::MachineType::MONGO: {
-      instanceType = config.getInstanceTypes().getMongo();
-
-      // Attach necessary disk.
-      auto param = kj::str("--disk=name=", id, "-data,mode=rw,device-name=blackrock");
-      args.add(param);
-      scratch.add(kj::mv(param));
-      startupScript =
-          "#! /bin/sh\n"
-          "mkdir -p /var/blackrock/bundle\n"
-          "mount /dev/disk/by-id/google-blackrock /var/blackrock/bundle\n";
-      break;
-    }
-  }
-
-  args.add("--machine-type");
-  args.add(instanceType);
-
-  if (startupScript == nullptr) {
-    return gceCommand(args);
-  } else {
-    // We'll pass the startup script via stdin.
-    args.add("--metadata-from-file=startup-script=/dev/stdin");
-
-    // No need for async pipe since the startup script almost certainly won't fill the pipe buffer
-    // anyhow, and even if it did, the tool immediately reads it before doing other stuff.
-    auto pipe = sandstorm::Pipe::make();
-    auto promise = gceCommand(args, pipe.readEnd);
-    pipe.readEnd = nullptr;
-    kj::FdOutputStream(kj::mv(pipe.writeEnd)).write(startupScript.begin(), startupScript.size());
-    return kj::mv(promise);
-  }
+  kj::String name = kj::str(id);
+  args.addAll(std::initializer_list<const kj::StringPtr> { "echo", name, "NEED-BOOT" });
+  return gceCommand(args);
 }
 
 kj::Promise<VatPath::Reader> GceDriver::run(
@@ -245,8 +160,7 @@ kj::Promise<VatPath::Reader> GceDriver::run(
   kj::Vector<kj::StringPtr> args;
   auto command = kj::str("/blackrock/bin/blackrock slave --log ", addr, " if4:eth0");
   args.addAll(kj::ArrayPtr<const kj::StringPtr>({
-      "ssh", target, "--command", command, "-q"}));
-  if (requireRestartProcess) args.add("-r");
+      "ssh", target, command}));
 
   auto exitPromise = gceCommand(args, stdinReadEnd, stdoutWriteEnd);
 
@@ -267,34 +181,20 @@ kj::Promise<VatPath::Reader> GceDriver::run(
 }
 
 kj::Promise<void> GceDriver::stop(MachineId id) {
-  return gceCommand({"instances", "delete", kj::str(id), "-q"});
+  kj::String name = kj::str(id);
+  return gceCommand({"echo", name, "NEED-STOP"});
 }
 
 kj::Promise<void> GceDriver::gceCommand(kj::ArrayPtr<const kj::StringPtr> args,
                                         int stdin, int stdout) {
-  auto fullArgs = kj::heapArrayBuilder<const kj::StringPtr>(args.size() + 4);
-  fullArgs.add("gcloud");
-  fullArgs.add("--project");
-  fullArgs.add(config.getProject());
-  fullArgs.add("compute");
+  auto fullArgs = kj::heapArrayBuilder<const kj::StringPtr>(args.size());
   fullArgs.addAll(args);
-
-  kj::Vector<kj::StringPtr> env;
-  auto newEnv = kj::str("CLOUDSDK_COMPUTE_ZONE=", config.getZone());
-  env.add(newEnv);
-  for (char** envp = environ; *envp != nullptr; ++envp) {
-    kj::StringPtr e = *envp;
-    if (!e.startsWith("CLOUDSDK_COMPUTE_ZONE=")) {
-      env.add(e);
-    }
-  }
 
   sandstorm::Subprocess::Options options(fullArgs.finish());
   auto command = kj::strArray(options.argv, " ");
   KJ_LOG(INFO, command);
   options.stdin = stdin;
   options.stdout = stdout;
-  options.environment = kj::ArrayPtr<const kj::StringPtr>(env);
   return subprocessSet.waitForSuccess(kj::mv(options));
 }
 
