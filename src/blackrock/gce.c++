@@ -126,8 +126,6 @@ auto GceDriver::listMachines() -> kj::Promise<kj::Array<MachineId>> {
     lastSeenMachine = MachineId("worker0");
     result.add(KJ_ASSERT_NONNULL(lastSeenMachine));
 
-    KJ_LOG(INFO, "add all machines");
-
     return kj::joinPromises(promises.releaseAsArray())
         .then([KJ_MVCAP(result)]() mutable { return result.releaseAsArray(); });
   });
@@ -189,7 +187,6 @@ kj::Promise<void> GceDriver::gceCommand(kj::ArrayPtr<const kj::StringPtr> args,
                                         int stdin, int stdout) {
   auto fullArgs = kj::heapArrayBuilder<const kj::StringPtr>(args.size());
   fullArgs.addAll(args);
-
   sandstorm::Subprocess::Options options(fullArgs.finish());
   auto command = kj::strArray(options.argv, " ");
   KJ_LOG(INFO, command);
