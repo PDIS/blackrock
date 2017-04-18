@@ -29,10 +29,13 @@ struct MasterConfig {
   union {
     vagrant @2 :VagrantConfig;
     gce @3 :GceConfig;
+    empty @5 :EmptyConfig;
   }
 }
 
 struct VagrantConfig {}
+
+struct EmptyConfig {}
 
 struct GceConfig {
   project @0 :Text;

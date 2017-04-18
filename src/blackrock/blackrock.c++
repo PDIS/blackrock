@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include "nbd-bridge.h"
 #include "gce.h"
+#include "empty-driver.h"
 #include "bundle.h"
 #include <sandstorm/backup.h>
 #include <sys/time.h>
@@ -555,6 +556,9 @@ private:
         break;
       case MasterConfig::GCE:
         driver = kj::heap<GceDriver>(subprocessSet, *ioContext.lowLevelProvider, config.getGce());
+        break;
+      case MasterConfig::EMPTY:
+        driver = kj::heap<EmptyDriver>(subprocessSet, *ioContext.lowLevelProvider);
         break;
     }
     blackrock::runMaster(ioContext, *driver, config, shouldRestart, machinesToRestart);
